@@ -4,6 +4,12 @@ cmds = {
         "example" : "[command]",
         "desc" : "Type $help <command> to see a description of some command, or type $all to see a list of all commands. If any command argument includes whitespace, enclose that argument in \"quotation marks like this\".\nHint: you can type bank account IDs without leading zeros and without spaces, so `0000 0045` can be written as `45`.",
         "alias" : [ "?" ]
+    },
+    "roles" : {
+        "mod" : False,
+        "example" : "<player>",
+        "desc" : "Shows the roles of a player and when its terms run out.",
+        "alias" : [ "terms" ]
     }
 }
 

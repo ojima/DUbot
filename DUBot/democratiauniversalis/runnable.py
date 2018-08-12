@@ -7,31 +7,42 @@ class Runnable:
         @author ojima
     """
     def __init__(self):
-        self.running = False
-        self.loop = Mp.Process(target = self.run)
-        self.delta = 1.0
+        self._running = False
+        self._loop = Mp.Process(target = self.run)
+        self._delta = 1.0
+        self._queue = Mp.Queue()
     
     def start(self):
-        """ Start the Runnable's main loop. """
+        """ Start the Runnable's main _loop. """
         print('Starting runnable.')
-        self.running = True
-        self.loop.start()
+        self._running = True
+        self._loop.start()
     
     def stop(self):
-        """ Stop the Runnable's main loop. """
-        self.running = False
-        self.loop.join()
+        """ Stop the Runnable's main _loop. """
+        self._running = False
+        self._loop.join()
     
     def run(self):
         last = time.time()
         
-        while self.running:
+        while self._running:
             now = time.time()
-            if now - last > self.delta:
+            if now - last > self._delta:
                 last = now
                 self.update()
             else:
-                time.sleep(self.delta / 100.0)
+                time.sleep(self._delta / 100.0)
     
     def update(self):
+        """ Abstract method for runnable update execution. """
         pass
+    
+    @property
+    def running(self) -> bool:
+        """ Get whether this runnable is running """
+        return self._running
+    
+    @property
+    def queue(self) -> Mp.Queue:
+        return self._queue
