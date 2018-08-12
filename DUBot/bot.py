@@ -6,7 +6,6 @@ Created on 9 Aug 2018
 
 import asyncio
 import json
-import queue
 import shlex
 
 import discord
@@ -17,6 +16,11 @@ from democratiauniversalis.rolemanager import RoleManager
 import multiprocessing as Mp
 import utils
 
+def get_setting(settings, tag):
+    if not tag in settings:
+        raise KeyError('Cannot get setting {0}: non-existent tag.')
+    
+    return settings[tag]
 
 async def responder(queue):
     await client.wait_until_ready()
@@ -27,10 +31,9 @@ async def responder(queue):
         got_reply = False
         while not queue.empty():
             event = queue.get()
+            # TODO: nicely split messages into messages of no more than 2000 chars so that discord doesn't refuse too long messages.
             await client.send_message(event['to'], event['message'])
             got_reply = True
-            
-            print('Sent message {0} to {1}'.format(event['message'], event['to']))
         
         if not got_reply:
             await asyncio.sleep(1)
@@ -38,9 +41,9 @@ async def responder(queue):
 with open('settings.json', 'r') as tfile:
     settings = json.load(tfile)
 
-token = settings['token']
-gamefile = settings['gamefile']
-owners = settings['owners']
+token = get_setting(settings, 'token')
+gamefile = get_setting(settings, 'gamefile')
+owners = get_setting(settings, 'owners')
 
 respondqueue = Mp.Queue()
 
@@ -87,8 +90,15 @@ async def on_message(message):
             print('Running command {0}.'.format(command))
 
             if command == 'help':
-                desc = utils.get_help(command, game.is_owner(player))
+                if len(cmds) > 1:
+                    cmd = utils.get_alias(cmds[1])
+                    desc = utils.get_help(cmd, game.is_owner(player))
+                else:
+                    desc = utils.get_help(command, game.is_owner(player))
                 respondqueue.put({ 'to' : message.channel, 'message' : desc })
+            elif command == 'all':
+                desc = utils.get_all(game.is_owner(player))
+                respondqueue.put({ 'to' : message.author, 'message' : desc })
 
 print('Running client...')
 client.loop.create_task(responder(respondqueue))

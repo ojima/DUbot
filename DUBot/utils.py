@@ -5,10 +5,14 @@ cmds = {
         "desc" : "Type $help <command> to see a description of some command, or type $all to see a list of all commands. If any command argument includes whitespace, enclose that argument in \"quotation marks like this\".\nHint: you can type bank account IDs without leading zeros and without spaces, so `0000 0045` can be written as `45`.",
         "alias" : [ "?" ]
     },
+    "all" : {
+        "mod" : False,
+        "desc" : "List all commands you have access to."
+    },
     "roles" : {
         "mod" : False,
-        "example" : "<player>",
-        "desc" : "Shows the roles of a player and when its terms run out.",
+        "example" : "[player]",
+        "desc" : "Shows the roles of a player and when its terms run out. If no player is provided it shows your roles.",
         "alias" : [ "terms" ]
     }
 }
@@ -47,3 +51,18 @@ def get_help(cmd, is_owner = False):
         res += '\n\nAliases: ' + ', '.join(tag['alias'])
 
     return '```' + res + '```'
+
+# returns a quick list of all commands
+def get_all(is_owner = False):
+    res = '```'
+    i = 1
+    for cmd in cmds:
+        tag = cmds[cmd]
+        if "mod" in tag:
+            if tag["mod"] and not is_owner:
+                continue
+
+        res += '{2:2d}. {0:s}: {1:s}\n'.format(cmd, tag['desc'], i)
+        i += 1
+
+    return res.strip() + '```'
