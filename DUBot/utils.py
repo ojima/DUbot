@@ -1,4 +1,3 @@
-import cmd
 cmds = {
     "help" : {
         "limit" : None,
@@ -39,6 +38,22 @@ cmds = {
         "limit" : [ "operator" ],
         "desc" : "Force stop the bot, without saving data."
     },
+    "newaccount" : {
+        "limit" : None,
+        "example" : "<name>",
+        "desc" : "Register a new bank account on your name.",
+        "alias" : [ "register" ]
+    },
+    "balance" : {
+        "limit" : None,
+        "desc" : "Display your total banking balance.",
+        "alias" : [ "accounts" ]
+    },
+    "transfer" : {
+        "limit" : None,
+        "example" : "<from> <to> <amount> [comment]",
+        "desc" : "Transfer money from your bank account to a different bank account."
+    }
 }
 
 def get_alias(cmd):
@@ -58,14 +73,14 @@ def can_do(cmd, roles = None):
     tag = cmds[cmd]
     if tag['limit'] is None:
         return True
-    
+
     if roles is None:
         return False
-    
+
     for role in roles:
         if role.name in tag['limit']:
             return True
-    
+
     return False
 
 def get_help(cmd, roles = None):
@@ -96,7 +111,7 @@ def get_all(roles = None):
     i = 1
     for cmd in cmds:
         if not can_do(cmd, roles): continue
-        
+
         res += '{2:2d}. {0:s}: {1:s}\n'.format(cmd, cmds[cmd]['desc'], i)
         i += 1
 
