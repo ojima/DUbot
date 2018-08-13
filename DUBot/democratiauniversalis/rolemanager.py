@@ -1,6 +1,6 @@
 import queue
 
-from democratiauniversalis.runnable import Runnable
+from democratiauniversalis.prototypes import Runnable
 
 class RoleManager(Runnable):
     def __init__(self, game, queue):
@@ -14,6 +14,13 @@ class RoleManager(Runnable):
         try:
             while True:
                 event = self.queue.get()
-                # Do stuff with event
+                
+                if event['type'] == 'give':
+                    pass
+                
         except queue.Empty:
             return
+    
+    @property
+    def name(self):
+        return 'role-manager'

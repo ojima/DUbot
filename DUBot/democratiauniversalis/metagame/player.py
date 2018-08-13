@@ -1,40 +1,59 @@
 from democratiauniversalis.metagame.role import Role
 
 class Player:
+
     def __init__(self, game, uid):
         self._game = game
         self._uid = uid
         self._username = None
         self._roles = [ ]
-    
+
     def from_dict(self, dct):
         self._username = dct['username']
         self._roles = [ ]
-        
+
         for r in dct['roles']:
             s = Role()
             s.from_dict(r)
             self._roles.append(s)
-    
+
     def to_dict(self):
         dct = { }
-        
+
         dct['username'] = self._username
         dct['roles'] = [ ]
-        
+
         for role in self._roles:
             dct['roles'].append(role.to_dict())
-        
+
         return dct
+
+    def add_role(self, role):
+        self._roles.append(role)
     
+    def remove_role(self, role):
+        for r in self._roles:
+            if r == role:
+                self._roles.remove(r)
+    
+    def has_role(self, role):
+        for r in self._roles:
+            if r == role:
+                return True
+        return False
+
     @property
     def uid(self) -> str:
         return self._uid
-    
+
     @property
     def username(self) -> str:
         return self._username
-    
+
+    @property
+    def roles(self) -> list:
+        return self._roles
+
     def __eq__(self, other):
         if isinstance(other, int):
             return int(self._uid) == other

@@ -1,20 +1,44 @@
+import cmd
 cmds = {
     "help" : {
-        "mod" : False,
+        "limit" : None,
         "example" : "[command]",
         "desc" : "Type $help <command> to see a description of some command, or type $all to see a list of all commands. If any command argument includes whitespace, enclose that argument in \"quotation marks like this\".\nHint: you can type bank account IDs without leading zeros and without spaces, so `0000 0045` can be written as `45`.",
         "alias" : [ "?" ]
     },
     "all" : {
-        "mod" : False,
+        "limit" : None,
         "desc" : "List all commands you have access to."
     },
     "roles" : {
-        "mod" : False,
+        "limit" : None,
         "example" : "[player]",
         "desc" : "Shows the roles of a player and when its terms run out. If no player is provided it shows your roles.",
         "alias" : [ "terms" ]
-    }
+    },
+    "addrole" : {
+        "limit" : [ "operator" ],
+        "example" : "<player> <role> [end]",
+        "desc" : "Give a role to a player. The end date is asserted to be of the format DD-MM-YYYY. If no end date is provided, the role is assumed to be indefinite.",
+    },
+    "delrole" : {
+        "limit" : [ "operator" ],
+        "example" : "<player> <role>",
+        "desc" : "Take away a role from a player."
+    },
+    "save" : {
+        "limit" : [ "operator" ],
+        "desc" : "Force a full data save.",
+        "alias" : [ "saveall", "dump" ]
+    },
+    "stop" : {
+        "limit" : [ "operator" ],
+        "desc" : "Gracefully stop the bot, executing a full save and all."
+    },
+    "kill" : {
+        "limit" : [ "operator" ],
+        "desc" : "Force stop the bot, without saving data."
+    },
 }
 
 def get_alias(cmd):
@@ -29,18 +53,32 @@ def get_alias(cmd):
 
     return None
 
-def get_help(cmd, is_owner = False):
+def can_do(cmd, roles = None):
+    """ Returns whether a collection of roles give the person permission to execute this command """
+    tag = cmds[cmd]
+    if tag['limit'] is None:
+        return True
+    
+    if roles is None:
+        return False
+    
+    for role in roles:
+        if role.name in tag['limit']:
+            return True
+    
+    return False
+
+def get_help(cmd, roles = None):
     """ Returns the description of this command. """
     cmd = cmd.replace('$', '')
     main = get_alias(cmd)
-    
+
     if main is None: return 'Unknown command ${0:s}'.format(cmd)
 
     tag = cmds[main]
 
-    if "mod" in tag:
-        if tag["mod"] and not is_owner:
-            return 'Unknown command ${0:s}'.format(cmd)
+    if not can_do(cmd, roles):
+        return 'Unknown command ${0:s}'.format(cmd)
 
     res = '${0:s}\n{1:s}'.format(main, cmds[main]['desc'])
 
@@ -53,16 +91,13 @@ def get_help(cmd, is_owner = False):
     return '```' + res + '```'
 
 # returns a quick list of all commands
-def get_all(is_owner = False):
+def get_all(roles = None):
     res = '```'
     i = 1
     for cmd in cmds:
-        tag = cmds[cmd]
-        if "mod" in tag:
-            if tag["mod"] and not is_owner:
-                continue
-
-        res += '{2:2d}. {0:s}: {1:s}\n'.format(cmd, tag['desc'], i)
+        if not can_do(cmd, roles): continue
+        
+        res += '{2:2d}. {0:s}: {1:s}\n'.format(cmd, cmds[cmd]['desc'], i)
         i += 1
 
     return res.strip() + '```'
