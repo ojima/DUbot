@@ -104,7 +104,7 @@ class Banking(Runnable, Saveable):
 
     def load(self, filename):
         self.log('Loading banking state.')
-
+        
         with open(filename, 'r') as fp:
             dct = json.load(fp)
 
