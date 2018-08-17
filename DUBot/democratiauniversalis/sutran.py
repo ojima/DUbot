@@ -65,8 +65,9 @@ class Sutran:
                 if self._board[location[0] + i][location[1] + j] != False:
                     if self._board[location[0] + i][location[1] + j].owner() == unit.owner():
                         friendly += 1
-                    if self._board[location[0] + i][location[1] + j].owner() != unit.owner() and self._board:
+                    if self._board[location[0] + i][location[1] + j].owner() != unit.owner() and (i == 0 or j == 0):
                         enemies += 1
+        
         if enemies > friendly:
             return True
         return False
