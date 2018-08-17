@@ -10,11 +10,12 @@ import discord
 from democratiauniversalis.banking import Banking
 from democratiauniversalis.metagame.game import Game
 from democratiauniversalis.metagame.role import Role
-from democratiauniversalis.rolemanager import RoleManager
+from democratiauniversalis.reminder import Reminder
 import multiprocessing as Mp
 import utils
 
 def get_setting(settings, tag, default = None):
+    # TODO: Make a more robust and flexible system for settings.
     if not tag in settings:
         if default is None:
             raise KeyError('Cannot get setting {0}: non-existent tag.'.format(tag))
@@ -23,6 +24,13 @@ def get_setting(settings, tag, default = None):
             return default
 
     return settings[tag]
+
+def set_setting(settings, tag, value, sfile = None):
+    settings[tag] = value
+    
+    if not sfile is None:
+        with open(sfile, 'w') as fp:
+            json.dump(settings, fp, indent = 2)
 
 async def responder(queue):
     await client.wait_until_ready()
@@ -35,11 +43,29 @@ async def responder(queue):
         got_reply = False
         while not queue.empty():
             event = queue.get()
+
             # TODO: nicely split messages into messages of no more than 2000 chars so that discord doesn't refuse too long messages.
-            if isinstance(event['to'], list):
+            if isinstance(event['message'], list):
+                for msg in event['message']:
+                    queue.put({'to' : event['to'], 'message' : msg})
+                continue
+
+            if isinstance(event['to'], str):
+                # Find user by ID
+                user = client.get_user_info(event['to'])
+                if not user is None:
+                    queue.put({ 'to' : user, 'message' : event['message'] })
+            elif isinstance(event['to'], Role):
+                # Find all users with a certain role
+                for player in game.players:
+                    if player.has_role(event['to']):
+                        queue.put({ 'to' : player.uid, 'message' : event['message'] })
+            elif isinstance(event['to'], list):
+                # Split list of messages
                 for to in event['to']:
-                    await client.send_message(to, event['message'])
+                    queue.put({ 'to' : to, 'message' : event['message'] })
             else:
+                # Send actual messages
                 await client.send_message(event['to'], event['message'])
 
             got_reply = True
@@ -55,7 +81,7 @@ async def responder(queue):
 with open('settings.json', 'r') as tfile:
     settings = json.load(tfile)
 
-token = get_setting(settings, 'token')
+token = 'NDU2ODY3NDYzMjcxODA5MDM0.DiZVJQ.TNcDZeeraqFoATQS_jK-DzR8RiY'  # get_setting(settings, 'token')
 gamefile = get_setting(settings, 'gamefile')
 bankfile = get_setting(settings, 'bankfile')
 owners = get_setting(settings, 'owners')
@@ -70,7 +96,7 @@ for o in owners:
     game.add_owner(o)
 
 banking = Banking(respondqueue, bankfile)
-manager = RoleManager(game, respondqueue)
+manager = Reminder(game, respondqueue)
 
 print('Initialized manager runnables.')
 
@@ -95,6 +121,9 @@ async def on_message(message):
     player = game.get_player(message.author.id)
     if player is None:
         player = game.new_player(message.author.id, message.author.name)
+
+    # Dropout because we're running in private mode
+    if get_setting(settings, 'private-mode', False) and not player.has_role('operator'): return
 
     # Only respond if this is an explicit command [first character is a $] or if bot gets pinged and it is a command
     if message.clean_content.startswith('$') or (client.user in message.mentions and '$' in message.clean_content):
@@ -229,7 +258,57 @@ async def on_message(message):
                         targets.append(user)
 
                 banking.queue.put({ 'type' : 'transfer', 'pid' : player.uid, 'from' : fromid, 'to' : toid, 'amount' : amount, 'details' : details, 'channel' : targets })
+            elif command == 'veterans':
+                if message.channel.is_private:
+                    respondqueue.put({ 'to' : message.channel, 'message' : 'You need to use this command in a server.' })
+                    return
 
+                print_all = False
+                if len(cmds) > 1:
+                    if cmds[1] == 'all' and player.has_role('operator'):
+                        print_all = True
+
+                people = []
+                names = []
+                joined = []
+
+                for m in message.server.members:
+                    people.append(m.id)
+                    names.append(m.name)
+                    joined.append(m.joined_at)
+
+                people = [ p for _, p in sorted(zip(joined, people)) ]
+                names = [ p for _, p in sorted(zip(joined, names)) ]
+                joined = sorted(joined)
+
+                res = None
+                if print_all:
+                    res = []
+
+                    for i in range(len(people)):
+                        addition = '{0:2d}. {1} ({2})\n'.format(i + 1, names[i], joined[i].strftime('%d-%m-%Y'))
+                        if len(res) == 0:
+                            res = [ '```' + addition ]
+                        elif len(res[-1]) + len(addition) < 1500:
+                            res[-1] += addition
+                        else:
+                            res[-1] += '```'
+                            res.append('```' + addition)
+
+                    res[-1] += '```'
+                else:
+                    res = '```'
+                    for i in range(10):
+                        res += '{0:2d}. {1} ({2})\n'.format(i + 1, names[i], joined[i].strftime('%d-%m-%Y'))
+
+                    i = people.index(message.author.id)
+                    if i > 10: res += '...\n{0:2d}. {1} ({2})\n'.format(i, names[i - 1], joined[i - 1].strftime('%d-%m-%Y'))
+                    res += '{0:2d}. {1} ({2})\n'.format(i + 1, names[i], joined[i].strftime('%d-%m-%Y'))
+                    if i + 1 < len(people): res += '{0:2d}. {1} ({2})\n'.format(i + 2, names[i + 1], joined[i + 1].strftime('%d-%m-%Y'))
+                    if i + 2 < len(people): res += '...'
+                    res += '```'
+
+                respondqueue.put({ 'to' : message.channel, 'message' : res })
 # EOF
 print('Running client...')
 client.loop.create_task(responder(respondqueue))

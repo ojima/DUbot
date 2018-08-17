@@ -2,11 +2,17 @@ from democratiauniversalis.metagame.role import Role
 
 class Player:
 
+    # List of default values for settings
+    settings = {
+        "remind-me" : False
+    }
+
     def __init__(self, game, uid):
         self._game = game
         self._uid = uid
         self._username = None
         self._roles = [ ]
+        self._settings = Player.settings
 
     def from_dict(self, dct):
         self._username = dct['username']
@@ -16,6 +22,9 @@ class Player:
             s = Role()
             s.from_dict(r)
             self._roles.append(s)
+        
+        for s in dct['settings']:
+            self._settings[s] = dct['settings'][s]
 
     def to_dict(self):
         dct = { }
@@ -26,16 +35,32 @@ class Player:
         for role in self._roles:
             dct['roles'].append(role.to_dict())
 
+        dct['settings'] = self._settings
+
         return dct
+
+    def set_setting(self, setting, value):
+        if not setting in Player.settings:
+            raise KeyError('Invalid key for player setting {0}'.format(setting))
+        if not type(value) == type(Player.settings[setting]):
+            raise ValueError('Invalid value {1} for player setting {0}'.format(setting, value))
+        self._settings[setting] = value
+
+    def get_setting(self, setting):
+        if not setting in Player.settings:
+            return None
+        if not setting in self._settings:
+            return Player.settings[setting]
+        return self._settings[setting]
 
     def add_role(self, role):
         self._roles.append(role)
-    
+
     def remove_role(self, role):
         for r in self._roles:
             if r == role:
                 self._roles.remove(r)
-    
+
     def has_role(self, role):
         for r in self._roles:
             if r == role:

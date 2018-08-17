@@ -9,6 +9,11 @@ cmds = {
         "limit" : None,
         "desc" : "List all commands you have access to."
     },
+    "settings" : {
+        "limit" : None,
+        "example" : "[set <name> <value>]",
+        "desc" : "Shows the settings for your account. "
+    },
     "roles" : {
         "limit" : None,
         "example" : "[player]",
@@ -53,6 +58,15 @@ cmds = {
         "limit" : None,
         "example" : "<from> <to> <amount> [comment]",
         "desc" : "Transfer money from your bank account to a different bank account."
+    },
+    "vote" : {
+        "limit" : [ "operator", "moderator", "seneschal" ],
+        "example" : "[vote] [url]",
+        "desc" : "Organise a vote and let DUBot handle the reminders."
+    },
+    "veterans" : {
+        "limit" : None,
+        "desc" : "Shows how much of a veteran you are..."
     }
 }
 

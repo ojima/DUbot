@@ -5,10 +5,7 @@ import multiprocessing as Mp
 
 
 class Runnable:
-    """
-        A basic (abstract) class for runnables to be instantized by the client.
-        @author ojima
-    """
+    """ A basic (abstract) class for runnables to be instantized by the client. """
     def __init__(self):
         self._running = False
         self._loop = Mp.Process(target = self.run)
@@ -59,7 +56,7 @@ class Runnable:
         return 'runnable'
 
 class Saveable:
-    """ A saveable is any class that has a load and a save method """
+    """ A saveable is any class that is guaranteed to have a load and a save method """
     def save(self, filename):
         pass
     
