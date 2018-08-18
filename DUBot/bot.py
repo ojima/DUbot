@@ -219,14 +219,20 @@ async def on_message(message):
 
                 targets = [ ]
 
-                for u in banking.get_owners(fromid):
-                    user = await client.get_user_info(u)
-                    if not user in targets:
-                        targets.append(user)
-                for u in banking.get_owners(toid):
-                    user = await client.get_user_info(u)
-                    if not user in targets:
-                        targets.append(user)
+                from_owners = banking.get_owners(fromid)
+                to_owners = banking.get_owners(toid)
+
+                if not from_owners is None:
+                    for u in from_owners:
+                        user = await client.get_user_info(u)
+                        if not user in targets:
+                            targets.append(user)
+
+                if not to_owners is None:
+                    for u in to_owners:
+                        user = await client.get_user_info(u)
+                        if not user in targets:
+                            targets.append(user)
 
                 banking.queue.put({ 'type' : 'transfer', 'pid' : player.uid, 'from' : fromid, 'to' : toid, 'amount' : amount, 'details' : details, 'channel' : targets })
 
