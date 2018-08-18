@@ -12,15 +12,11 @@ class Sutran:
 
         for i in range(9):
             if(i < 2 or i > 6):
-                self._starter.place("knight", (0, i))
-                self._second.place("knight", (8, i))
+                self.place(self._starter, "knight", (0, i))
+                self.place(self._second, "knight", (8, i))
             else:
-                self._starter.place("pawn", (0, i))
-                self._second.place("pawn", (8, i))
-
-    @property
-    def board(self):
-        return self._board
+                self.place(self._starter, "pawn", (0, i))
+                self.place(self._second, "pawn", (8, i))
 
     def move(self, player, start, end):
         """ moves a unit and returns true if it moved and false if it couldn't """
@@ -42,8 +38,8 @@ class Sutran:
 
     def victories(self):
         """ returns 0 if the game should still continue, -1 if both players lost, 1 if the starting won, and 2 if he lost """
-        player1 = self._starter.remainingUnits()
-        player2 = self._second.remainingUnits()
+        player1 = self._starter.remainingUnits
+        player2 = self._second.remainingUnits
         if player1 > 3 and player2 > 3:
             return 0
         if player1 <= 3 and player2 <= 3:
@@ -67,12 +63,12 @@ class Sutran:
                         friendly += 1
                     if self._board[location[0] + i][location[1] + j].owner() != unit.owner() and (i == 0 or j == 0):
                         enemies += 1
-        
+
         if enemies > friendly:
             return True
         return False
 
-    def Capture(self, player, start, capture, other = None):
+    def capture(self, player, start, capture, other = None):
         """tries to capture the unit in capture and in other via the unit from start and returns True is sucessful and False if it cannot be captures"""
         startUnit = self._board[start[0]][start[1]]
         captureUnit = self._board[capture[0]][capture[1]]
@@ -86,6 +82,20 @@ class Sutran:
         if(otherUnit != None):
             otherUnit.owner.removeUnit(otherUnit)
 
+    def place(self, player, typ, location):
+        """tries to place a unit of player with type in location and returns true if sucessful and false otherwise"""
+        if player == self._starter and location[0] != 0:
+            return False
+        if player == self._second and location[0] != 8:
+            return False
+        if self._board[location[0]][location[1]] != None:
+            return False
+        player.place(typ, location)
+
+    @property
+    def board(self):
+        return self._board
+
 class Player:
     """ a player in Sutran """
 
@@ -98,19 +108,6 @@ class Player:
             self._reserve.append(Pawn(self))
         for _ in range(6):
             self._reserve.append(Knight(self))
-
-    def __eq__(self, other):
-        if not isinstance(other, Player):
-            raise NotImplementedError('Cannot compare player to {0} type.'.format(type(other)))
-        if self._id == other._id:
-            return True
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def remainingUnits(self):
-        return len(self._units) + len(self._reserve)
 
     def removeUnit(self, unit):
         if unit in self._units:
@@ -131,7 +128,7 @@ class Player:
 
     def canPlace(self, typ):
         for unit in self._reserve:
-            if unit.type() == typ:
+            if unit.type == typ:
                 return True
         return False
 
@@ -146,9 +143,27 @@ class Player:
                     return True
         return False
 
+    def __eq__(self, other):
+        if not isinstance(other, Player):
+            raise NotImplementedError('Cannot compare player to {0} type.'.format(type(other)))
+        if self._id == other._id:
+            return True
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def game(self):
         return self._game
+
+    @property
+    def reserve(self):
+        return self._reserve
+
+    @property
+    def remainingUnits(self):
+        return len(self._units) + len(self._reserve)
 
 class Unit:
     """ Unit base class """
@@ -168,7 +183,7 @@ class Unit:
             self._location = location
             self._owner.game.board[location[0]][location[1]] = self
             return True
-        
+
         return False
 
     def setLocation(self, location):
@@ -177,15 +192,15 @@ class Unit:
     def owner(self):
         return self._owner
 
-    @property
-    def type(self):
-        return None
-
     def __str__(self):
         return self.type
 
     def __repr__(self):
         return self.type
+
+    @property
+    def type(self):
+        return None
 
 class Pawn(Unit):
     """ The Pawn Unit """
@@ -214,3 +229,6 @@ class Knight(Unit):
     @property
     def type(self):
         return "knight"
+
+game = Sutran()
+print(game.board)
