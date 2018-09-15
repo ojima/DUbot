@@ -201,6 +201,7 @@ class Banking(Runnable, Saveable):
         return T, 'Success'
     
     def get_owners(self, aid):
+        """ Returns all owners associated with this account. """
         if not aid in self._accounts:
             return None
         

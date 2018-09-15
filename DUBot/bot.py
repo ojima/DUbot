@@ -24,6 +24,14 @@ def get_setting(settings, tag, default = None):
 
     return settings[tag]
 
+def save_settings(settings):
+    print('Saving settings.')
+    with open('settings.json', 'w') as wfile:
+        json.dump(settings, wfile, indent = 2)
+
+with open('settings.json', 'r') as tfile:
+    settings = json.load(tfile)
+
 async def responder(queue):
     await client.wait_until_ready()
 
@@ -35,12 +43,15 @@ async def responder(queue):
         got_reply = False
         while not queue.empty():
             event = queue.get()
-            # TODO: nicely split messages into messages of no more than 2000 chars so that discord doesn't refuse too long messages.
+
+            msg = event['message']
+            if get_setting(settings, 'retardify', False): msg = utils.retardify(msg)
+
             if isinstance(event['to'], list):
                 for to in event['to']:
-                    await client.send_message(to, event['message'])
+                    await client.send_message(to, msg)
             else:
-                await client.send_message(event['to'], event['message'])
+                await client.send_message(event['to'], msg)
 
             got_reply = True
 
@@ -51,15 +62,16 @@ async def responder(queue):
         if now - last > save_timeout:
             last = now
             game.save(gamefile)
-
-with open('settings.json', 'r') as tfile:
-    settings = json.load(tfile)
+            save_settings(settings)
 
 token = get_setting(settings, 'token')
+if get_setting(settings, 'private-mode', False):
+    token = get_setting(settings, 'token-2')
 gamefile = get_setting(settings, 'gamefile')
 bankfile = get_setting(settings, 'bankfile')
 owners = get_setting(settings, 'owners')
 save_timeout = get_setting(settings, 'save-timeout', 60.0)
+reactboards = get_setting(settings, 'boards', { })
 
 respondqueue = Mp.Queue()
 
@@ -101,7 +113,7 @@ async def on_message(message):
         s = message.clean_content.find('$')
         cmds = shlex.split(message.clean_content[s + 1:])
 
-        command = utils.get_alias(cmds[0])
+        command = utils.get_alias(utils.detardify(cmds[0]))
 
         if command is None:
             print('Failed to interpret command {0}.'.format(cmds[0]))
@@ -122,6 +134,7 @@ async def on_message(message):
                 respondqueue.put({ 'to' : message.author, 'message' : desc })
             elif command == 'save':
                 game.save(gamefile)
+                save_settings(settings)
                 banking.queue.put({ 'type' : 'save' })
                 respondqueue.put({ 'to' : message.author, 'message' : 'Executing full save.' })
             elif command == 'stop':
@@ -235,6 +248,117 @@ async def on_message(message):
                             targets.append(user)
 
                 banking.queue.put({ 'type' : 'transfer', 'pid' : player.uid, 'from' : fromid, 'to' : toid, 'amount' : amount, 'details' : details, 'channel' : targets })
+            elif command == 'reactboard':
+                if message.channel.is_private:
+                    respondqueue.put({ 'to' : message.channel, 'message' : 'Can only be used in servers.' })
+                    return
+
+                if len(cmds) < 2:
+                    respondqueue.put({ 'to' : message.channel, 'message' : 'Usage: `{0}`'.format(utils.cmds[command]['example']) })
+                    return
+
+                server = message.channel.server
+                channel = None
+                for c in server.channels:
+                    if c.name.lower() == cmds[1].lower():
+                        channel = c
+                        break
+
+                if channel is None:
+                    respondqueue.put({ 'to' : message.channel, 'message' : 'Cannot find channel `{0}`.'.format(cmds[2]) })
+                    return
+
+                if not server.id in reactboards.keys():
+                    reactboards[server.id] = { }
+
+                if len(cmds) < 3:
+                    # Check for existing channel.
+                    for emoji in reactboards[server.id].keys():
+                        if reactboards[server.id][emoji]['channel'] == channel.id:
+                            msg = 'Channel {0} is a reaction channel for comments with at least {1}x the {2}-emote.'.format(channel.name, reactboards[server.id][emoji]['count'], emoji)
+                            respondqueue.put({ 'to' : message.channel, 'message' : msg })
+                            return
+
+                    # Non-existent channel, adding it.
+                    msg = await client.send_message(message.channel, 'You will set up channel {0} as a reaction channel. Please reply to me with the emoji you want to use for this reaction channel.'.format(channel.name))
+                    emo = await client.wait_for_reaction(user = message.author, message = msg, timeout = 60.0)
+
+                    if emo is None:
+                        respondqueue.put({ 'to' : message.channel, 'message' : 'I waited for so long and you never replied to me... :(' })
+                        return
+
+                    res = emo.reaction.emoji
+                    if isinstance(res, discord.Emoji): res = res.name
+
+                    if res in reactboards[server.id].keys():
+                        respondqueue.put({ 'to' : message.channel, 'message' : 'That emoji is already in use!' })
+                        return
+
+                    reactboards[server.id][res] = { 'channel' : channel.id, 'count' : 3 }
+                    respondqueue.put({ 'to' : message.channel, 'message' : 'Succesfully set channel {0} to be used as a scoreboard for getting {1} reactions!'.format(channel.name, res) })
+                else:
+                    if cmds[2].lower() == 'remove':
+                        # Deleting channel from reaction board.
+                        for emoji in reactboards[server.id].keys():
+                            if reactboards[server.id][emoji]['channel'] == channel.id:
+                                del reactboards[server.id][emoji]
+                                respondqueue.put({ 'to' : message.channel, 'message' : 'Removed reaction channel `{0}`.'.format(channel.name) })
+                                return
+
+                        respondqueue.put({ 'to' : message.channel, 'message' : 'Failed to remove reaction channel `{0}`: not a reaction channel.'.format(channel.name) })
+                        return
+                    elif cmds[2].lower() == 'limit':
+                        if len(cmds) < 4:
+                            respondqueue.put({ 'to' : message.channel, 'message' : 'Usage: `{0} limit [lim]`'.format(command) })
+                        else:
+                            try:
+                                lim = int(cmds[3])
+                            except Exception as e:
+                                respondqueue.put({ 'to' : message.channel, 'message' : 'I do not understand your query. Please try again.' })
+                                print(str(e))
+                                return
+
+                            if lim < 1: lim = 1
+                            if lim > 25: lim = 25
+
+                            for emoji in reactboards[server.id].keys():
+                                if reactboards[server.id][emoji]['channel'] == channel.id:
+                                    reactboards[server.id][emoji]['count'] = lim
+                                    respondqueue.put({ 'to' : message.channel, 'message' : 'Set minimum required emoji to {0}.'.format(lim) })
+                                    return
+
+                            respondqueue.put({ 'to' : message.channel, 'message' : 'Failed to set reaction channel `{0}` limit: not a reaction channel.'.format(channel.name) })
+                            return
+@client.event
+async def on_reaction_add(reaction, user):
+    server = reaction.message.channel.server
+    if not server.id in reactboards.keys(): return
+    
+    emoji = reaction.emoji
+    if isinstance(reaction.emoji, discord.Emoji):
+        emoji = reaction.emoji.name
+    
+    if not emoji in reactboards[server.id].keys():
+        print('Not an eligible emoji!')
+        return
+
+    if reaction.count >= reactboards[server.id][emoji]['count']:
+        print('Message {0} by {1} is over the reaction threshold!'.format(reaction.message.content, reaction.message.author.name))
+        channel = server.get_channel(reactboards[server.id][emoji]['channel'])
+
+        if channel is None: return
+
+        embed = discord.Embed()
+        embed.set_author(name = reaction.message.author.name, icon_url = reaction.message.author.avatar_url)
+        #embed.add_field(name = 'Author:', value = reaction.message.author.name, inline = True)
+        embed.add_field(name = 'Message:', value = reaction.message.content, inline = False)
+        #embed.set_thumbnail(url = reaction.message.author.avatar_url)
+        embed.set_footer(text = 'This message got upvoted with {0}x {1} emoji!'.format(reaction.count, emoji))
+
+        await client.send_message(channel, embed = embed)
+        return
+    else:
+        print('Message {0} by {1} has only {2}/{3} required reactions!'.format(reaction.message.content, reaction.message.author.name, reaction.count, reactboards[server.id][emoji]['count']))
 
 # EOF
 print('Running client...')

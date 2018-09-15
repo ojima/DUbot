@@ -9,6 +9,11 @@ cmds = {
         "limit" : None,
         "desc" : "List all commands you have access to."
     },
+    "settings" : {
+        "limit" : [ "operator" ],
+        "example" : "[set <name> <value>]",
+        "desc" : "View or change settings of DUBot."
+    },
     "roles" : {
         "limit" : None,
         "example" : "[player]",
@@ -53,7 +58,12 @@ cmds = {
         "limit" : None,
         "example" : "<from> <to> <amount> [comment]",
         "desc" : "Transfer money from your bank account to a different bank account."
-    }
+    },
+    "reactboard" : {
+        "limit" : [ "operator", "moderator" ],
+        "example" : "<channel> [remove/limit [lim]]",
+        "desc" : "Sets a reaction channel. Secondary command [remove] removes given channel as react board. Command [limit] sets the minimum limit to [lim] (default = 3, max = 25)."
+    },
 }
 
 def get_alias(cmd):
@@ -116,3 +126,41 @@ def get_all(roles = None):
         i += 1
 
     return res.strip() + '```'
+
+# retardifies a string - giving it stupid/ridiculous symbols.
+def retardify(string):
+    result = string
+    
+    result = list(result)
+    
+    slike = [ u'\u017F', u's', u'S' ]
+    roundl = [ 'o', 'b', 'p', 'h', u'\u01BF', u'\u00FE' ]
+    
+    for i, s in enumerate(result):
+        if s == 's':
+            if i+1 == len(result) or not result[i+1].isalpha(): pass
+            elif i == 0: result[i] = u'\u017F'
+            elif not result[i-1] in slike: result[i] = u'\u017F'
+    
+    for i, r in enumerate(result):
+        if r == 'r' and i > 0 and result[i-1] in roundl: result[i] = u'\uA75B'
+    
+    result = ''.join(result)
+    
+    result = result.replace('et', u'\u204A') # Tyronian et
+    result = result.replace('w', u'\u01BF').replace('W', u'\u01F7') # Wynn
+    result = result.replace('th', u'\u00FE').replace('Th', u'\u00DE').replace('TH', u'\u00DE') # Thorn
+    
+    return result
+
+# de-retardifies a string
+def detardify(string):
+    string = string.replace(u'\u017F', 's') # Long s
+    string = string.replace(u'\u204A', 'et') # Tyronian et
+    string = string.replace(u'\uA75B', 'r') # R rotunda
+    string = string.replace(u'\u01BF', 'w') # Lower-case wynn
+    string = string.replace(u'\u01F7', 'W') # Upper-case Wynn
+    string = string.replace(u'\u00FE', 'th') # Lower-case thorn
+    string = string.replace(u'\u00DE', 'Th') # Upper-case thorn
+    
+    return string
